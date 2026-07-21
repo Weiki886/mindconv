@@ -1,0 +1,31 @@
+# Build outputs
+/bin/
+/dist/
+/mindconv
+*.exe
+*.test
+*.out
+
+# Coverage and profiling
+coverage.*
+*.prof
+
+# Local fixtures and generated conversions
+/tmp/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Local coding-agent instructions
+AGENTS.md
+CLAUDE.md
+.cursor/
