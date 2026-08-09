@@ -78,6 +78,64 @@ func TestParseFileWithMalformedXML(t *testing.T) {
 	}
 }
 
+func TestIsNoteElement(t *testing.T) {
+	tests := []struct {
+		name string
+		elem string
+		want bool
+		why  string
+	}{
+		{"notesgroup is accepted", "NotesGroup", true, "standard MindManager notes container"},
+		{"notesxhtmldata is accepted", "NotesXhtmlData", true, "inner notes data element"},
+		{"notesplain is accepted", "NotesPlain", true, "plain text notes variant"},
+		{"notes is accepted", "Notes", true, "short form notes element"},
+		{"notesgroup lowercased", "notesgroup", true, "case-insensitive matching"},
+		{"notesxhtmldata mixed case", "NotesXHTMLData", true, "case-insensitive matching"},
+		{"footernotegroup is rejected", "FooterNoteGroup", false, "incidentally contains note but is not a notes container"},
+		{"notesetting is rejected", "NoteSetting", false, "configuration element, not notes content"},
+		{"unknown element", "RandomTag", false, "not a known notes container"},
+		{"empty string", "", false, "no element name"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isNoteElement(tc.elem)
+			if got != tc.want {
+				t.Errorf("isNoteElement(%q) = %v, want %v (%s)", tc.elem, got, tc.want, tc.why)
+			}
+		})
+	}
+}
+
+func TestTopicNotesWithDifferentElementNames(t *testing.T) {
+	tests := []struct {
+		name string
+		xml  string
+		want string
+	}{
+		{"NotesGroup with plaintext attr", `<Topic><NotesGroup PlainText="note from group"/><Text PlainText="T"/></Topic>`, "note from group"},
+		{"NotesXhtmlData with plaintext attr", `<Topic><NotesXhtmlData PlainText="note from xhtml"/><Text PlainText="T"/></Topic>`, "note from xhtml"},
+		{"NotesPlain with plaintext attr", `<Topic><NotesPlain PlainText="plain note"/><Text PlainText="T"/></Topic>`, "plain note"},
+		{"Notes with plaintext attr", `<Topic><Notes PlainText="short note"/><Text PlainText="T"/></Topic>`, "short note"},
+		{"FooterNoteGroup should be ignored", `<Topic><FooterNoteGroup PlainText="should be ignored"/><Text PlainText="T"/></Topic>`, ""},
+		{"NoteSetting should be ignored", `<Topic><NoteSetting PlainText="should be ignored"/><Text PlainText="T"/></Topic>`, ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := `<Map><OneTopic>` + tc.xml + `</OneTopic></Map>`
+			filename := createArchive(t, "Document.xml", doc)
+			mindMap, err := ParseFile(filename)
+			if err != nil {
+				t.Fatalf("ParseFile() error = %v", err)
+			}
+			if got := mindMap.Root.Notes; got != tc.want {
+				t.Errorf("root notes = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func createArchive(t *testing.T, entryName, content string) string {
 	t.Helper()
 	filename := filepath.Join(t.TempDir(), "sample.mmap")

@@ -24,20 +24,40 @@ func writeMarkdownTopic(writer io.Writer, topic *model.Topic, depth int) error {
 		}
 	} else {
 		indent := strings.Repeat("  ", depth-7)
-		if _, err := fmt.Fprintf(writer, "%s- **%s**\n\n", indent, escapeMarkdown(topic.Title)); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s- **%s**\n", indent, escapeMarkdown(topic.Title)); err != nil {
 			return err
 		}
 	}
 
+	if err := writeTopicMetadata(writer, topic, depth); err != nil {
+		return err
+	}
+
+	for _, child := range topic.Children {
+		if err := writeMarkdownTopic(writer, child, depth+1); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeTopicMetadata(writer io.Writer, topic *model.Topic, depth int) error {
+	// For deep topics rendered as list items, notes and links must be indented
+	// to stay inside the current list item, otherwise they break the hierarchy.
+	var indent string
+	if depth > 6 {
+		indent = strings.Repeat("  ", depth-6)
+	}
+
 	if topic.Notes != "" {
-		if _, err := fmt.Fprintf(writer, "%s\n\n", escapeMarkdown(topic.Notes)); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s%s\n\n", indent, escapeMarkdown(topic.Notes)); err != nil {
 			return err
 		}
 	}
 
 	for _, link := range topic.Links {
 		url := strings.ReplaceAll(link.URL, ">", "%3E")
-		if _, err := fmt.Fprintf(writer, "- [%s](<%s>)\n", escapeMarkdown(link.Title), url); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s- [%s](<%s>)\n", indent, escapeMarkdown(link.Title), url); err != nil {
 			return err
 		}
 	}
@@ -47,11 +67,6 @@ func writeMarkdownTopic(writer io.Writer, topic *model.Topic, depth int) error {
 		}
 	}
 
-	for _, child := range topic.Children {
-		if err := writeMarkdownTopic(writer, child, depth+1); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
