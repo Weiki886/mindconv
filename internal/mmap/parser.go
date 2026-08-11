@@ -30,23 +30,11 @@ var (
 
 // ParseFile parses a MindManager .mmap archive into a format-independent map.
 func ParseFile(filename string) (*model.Map, error) {
-	archive, err := zip.OpenReader(filename)
-	if err != nil {
-		return nil, fmt.Errorf("open mmap archive: %w", err)
-	}
-	defer archive.Close()
-
-	if len(archive.File) > maxArchiveEntries {
-		return nil, fmt.Errorf("mmap archive contains too many entries: %d", len(archive.File))
-	}
-
-	document, err := findDocument(archive.File)
+	archive, document, err := openDocument(filename)
 	if err != nil {
 		return nil, err
 	}
-	if document.UncompressedSize64 > maxDocumentSize {
-		return nil, fmt.Errorf("mmap Document.xml exceeds %d bytes", maxDocumentSize)
-	}
+	defer archive.Close()
 
 	reader, err := document.Open()
 	if err != nil {
@@ -65,6 +53,54 @@ func ParseFile(filename string) (*model.Map, error) {
 	}
 
 	return &model.Map{Root: convertTopic(rootTopic)}, nil
+}
+
+// WriteDocumentXML writes the original Document.xml from a MindManager archive.
+func WriteDocumentXML(filename string, writer io.Writer) error {
+	archive, document, err := openDocument(filename)
+	if err != nil {
+		return err
+	}
+	defer archive.Close()
+
+	reader, err := document.Open()
+	if err != nil {
+		return fmt.Errorf("open Document.xml: %w", err)
+	}
+	defer reader.Close()
+
+	written, err := io.Copy(writer, io.LimitReader(reader, maxDocumentSize+1))
+	if err != nil {
+		return fmt.Errorf("write Document.xml: %w", err)
+	}
+	if written > maxDocumentSize {
+		return fmt.Errorf("mmap Document.xml exceeds %d bytes", maxDocumentSize)
+	}
+	return nil
+}
+
+func openDocument(filename string) (*zip.ReadCloser, *zip.File, error) {
+	archive, err := zip.OpenReader(filename)
+	if err != nil {
+		return nil, nil, fmt.Errorf("open mmap archive: %w", err)
+	}
+
+	if len(archive.File) > maxArchiveEntries {
+		archive.Close()
+		return nil, nil, fmt.Errorf("mmap archive contains too many entries: %d", len(archive.File))
+	}
+
+	document, err := findDocument(archive.File)
+	if err != nil {
+		archive.Close()
+		return nil, nil, err
+	}
+	if document.UncompressedSize64 > maxDocumentSize {
+		archive.Close()
+		return nil, nil, fmt.Errorf("mmap Document.xml exceeds %d bytes", maxDocumentSize)
+	}
+
+	return archive, document, nil
 }
 
 func findDocument(files []*zip.File) (*zip.File, error) {

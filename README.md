@@ -1,6 +1,6 @@
 # mindconv
 
-`mindconv` 是一个使用 Go 编写的跨平台命令行工具，用于将 MindManager `.mmap` 思维导图转换为 Markdown 或静态 HTML 文件。
+`mindconv` 是一个使用 Go 编写的跨平台命令行工具，用于将 MindManager `.mmap` 思维导图转换为 Markdown、静态 HTML，或导出其中的原始 XML 文件。
 
 项目不依赖 MindManager，也不需要运行浏览器或后台服务。转换过程全部在本地完成，适合整理会议记录、项目规划、知识结构和其他树状内容。
 
@@ -12,6 +12,7 @@
 - 提取 HTTP、HTTPS、邮件及相对链接
 - 输出层级化 Markdown
 - 输出带响应式样式的单文件 HTML
+- 原样导出 `.mmap` 中的 `Document.xml`
 - 支持写入指定文件或标准输出
 - 默认拒绝覆盖已有文件
 - 限制压缩包条目数、XML 大小、深度和节点数
@@ -36,6 +37,7 @@ cd mindconv
 ```bash
 go run ./cmd/mindconv example.mmap
 go run ./cmd/mindconv example.mmap -f html
+go run ./cmd/mindconv example.mmap -f xml
 ```
 
 `go run` 后的第一个参数必须是 `./cmd/mindconv`，`.mmap` 文件是传递给程序的输入参数，不能直接写成 `go run example.mmap`。
@@ -193,11 +195,20 @@ mindconv --format html project.mmap
 mindconv -f html project.mmap
 ```
 
+### 导出原始 XML
+
+```bash
+mindconv --format xml project.mmap
+```
+
+默认在输入文件旁生成 `project.xml`。该文件是 `.mmap` 压缩包中的原始 `Document.xml`，不会经过重新格式化或重新序列化，适合调试、检查 MindManager 数据结构或交给其他 XML 工具处理。
+
 ### 指定输出文件
 
 ```bash
 mindconv project.mmap --output docs/project.md
 mindconv project.mmap -f html -o public/project.html
+mindconv project.mmap -f xml -o exports/project.xml
 ```
 
 ### 输出到终端
@@ -205,6 +216,7 @@ mindconv project.mmap -f html -o public/project.html
 ```bash
 mindconv project.mmap --stdout
 mindconv project.mmap -f html -o -
+mindconv project.mmap -f xml --stdout
 ```
 
 ### 覆盖已有文件
@@ -251,7 +263,7 @@ mindconv example.mmap --force
 
 | 参数 | 说明 |
 |------|------|
-| `-f, --format` | 输出格式，可选 `md`、`markdown`、`html` 或 `htm`；默认 `md` |
+| `-f, --format` | 输出格式，可选 `md`、`markdown`、`html`、`htm` 或 `xml`；默认 `md` |
 | `-o, --output` | 输出路径，使用 `-` 表示标准输出 |
 | `--stdout` | 将转换结果输出到终端 |
 | `--force` | 覆盖已经存在的输出文件 |
@@ -260,13 +272,13 @@ mindconv example.mmap --force
 
 ## 转换规则
 
-| MMAP 内容 | Markdown | HTML |
-|-----------|----------|------|
-| 中心主题 | 一级标题 | 页面标题和根节点 |
-| 子主题 | 二至六级标题 | 嵌套主题卡片 |
-| 更深层主题 | 缩进列表 | 嵌套主题卡片 |
-| 备注 | 标题下方的正文 | 主题备注区域 |
-| 超链接 | Markdown 链接 | 自动转义的 HTML 链接 |
+| MMAP 内容 | Markdown | HTML | XML |
+|-----------|----------|------|-----|
+| 中心主题 | 一级标题 | 页面标题和根节点 | 保留原始节点 |
+| 子主题 | 二至六级标题 | 嵌套主题卡片 | 保留原始节点 |
+| 更深层主题 | 缩进列表 | 嵌套主题卡片 | 保留原始节点 |
+| 备注 | 标题下方的正文 | 主题备注区域 | 保留原始节点 |
+| 超链接 | Markdown 链接 | 自动转义的 HTML 链接 | 保留原始节点 |
 
 ## 项目结构
 

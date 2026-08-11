@@ -44,8 +44,11 @@ func TestUnsupportedFormat(t *testing.T) {
 
 func TestDefaultOutputPath(t *testing.T) {
 	input := filepath.Join("maps", "project.mmap")
-	if got := defaultOutputPath(input, "html"); got != filepath.Join("maps", "project.html") {
-		t.Fatalf("defaultOutputPath() = %q", got)
+	for _, format := range []string{"md", "html", "xml"} {
+		want := filepath.Join("maps", "project."+format)
+		if got := defaultOutputPath(input, format); got != want {
+			t.Errorf("defaultOutputPath(%q) = %q, want %q", format, got, want)
+		}
 	}
 }
 
@@ -95,6 +98,22 @@ func TestRunWritesMarkdownToStdout(t *testing.T) {
 	}
 }
 
+func TestRunWritesXMLToStdout(t *testing.T) {
+	input := createMMAP(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := Run([]string{"--format", "xml", "--stdout", input}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run() code = %d, stderr = %s", code, stderr.String())
+	}
+	if got := stdout.String(); got != sampleXML {
+		t.Fatalf("stdout = %q, want %q", got, sampleXML)
+	}
+}
+
+const sampleXML = `<Map><OneTopic><Topic><Text PlainText="Sample Map"/><SubTopics><Topic><Text PlainText="Child"/></Topic></SubTopics></Topic></OneTopic></Map>`
+
 func createMMAP(t *testing.T) string {
 	t.Helper()
 	filename := filepath.Join(t.TempDir(), "sample.mmap")
@@ -107,8 +126,7 @@ func createMMAP(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xml := `<Map><OneTopic><Topic><Text PlainText="Sample Map"/><SubTopics><Topic><Text PlainText="Child"/></Topic></SubTopics></Topic></OneTopic></Map>`
-	if _, err := document.Write([]byte(xml)); err != nil {
+	if _, err := document.Write([]byte(sampleXML)); err != nil {
 		t.Fatal(err)
 	}
 	if err := archive.Close(); err != nil {
