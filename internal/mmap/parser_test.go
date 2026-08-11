@@ -2,6 +2,7 @@ package mmap
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -75,6 +76,26 @@ func TestParseFileWithMalformedXML(t *testing.T) {
 	filename := createArchive(t, "Document.xml", "<Map><Topic></Map>")
 	if _, err := ParseFile(filename); err == nil {
 		t.Fatal("ParseFile() error = nil, want malformed XML error")
+	}
+}
+
+func TestWriteDocumentXML(t *testing.T) {
+	const document = `<?xml version="1.0"?><Map><OneTopic/></Map>`
+	filename := createArchive(t, "map/Document.xml", document)
+
+	var output bytes.Buffer
+	if err := WriteDocumentXML(filename, &output); err != nil {
+		t.Fatalf("WriteDocumentXML() error = %v", err)
+	}
+	if got := output.String(); got != document {
+		t.Fatalf("WriteDocumentXML() = %q, want %q", got, document)
+	}
+}
+
+func TestWriteDocumentXMLWithoutDocument(t *testing.T) {
+	filename := createArchive(t, "Preview.xml", "<preview />")
+	if err := WriteDocumentXML(filename, &bytes.Buffer{}); !errors.Is(err, ErrDocumentNotFound) {
+		t.Fatalf("WriteDocumentXML() error = %v, want ErrDocumentNotFound", err)
 	}
 }
 

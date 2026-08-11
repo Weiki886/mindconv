@@ -14,7 +14,7 @@ import (
 	"github.com/Weiki886/mindconv/internal/render"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // Run executes the mindconv command and returns a process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -26,8 +26,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	var force bool
 	var toStdout bool
 	var showVersion bool
-	flags.StringVar(&format, "format", "md", "output format: md or html")
-	flags.StringVar(&format, "f", "md", "output format: md or html")
+	flags.StringVar(&format, "format", "md", "output format: md, html, or xml")
+	flags.StringVar(&format, "f", "md", "output format: md, html, or xml")
 	flags.StringVar(&output, "output", "", "output file path; use - for stdout")
 	flags.StringVar(&output, "o", "", "output file path; use - for stdout")
 	flags.BoolVar(&force, "force", false, "overwrite an existing output file")
@@ -62,23 +62,27 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	format = normalizeFormat(format)
 	if format == "" {
-		fmt.Fprintln(stderr, "mindconv: unsupported format; use md or html")
+		fmt.Fprintln(stderr, "mindconv: unsupported format; use md, html, or xml")
 		return 2
 	}
 
 	input := flags.Arg(0)
-	mindMap, err := mmap.ParseFile(input)
-	if err != nil {
-		fmt.Fprintf(stderr, "mindconv: %v\n", err)
-		return 1
-	}
-
 	var converted bytes.Buffer
+	var err error
 	switch format {
-	case "md":
-		err = render.Markdown(&converted, mindMap)
-	case "html":
-		err = render.HTML(&converted, mindMap)
+	case "xml":
+		err = mmap.WriteDocumentXML(input, &converted)
+	case "md", "html":
+		mindMap, mindMapErr := mmap.ParseFile(input)
+		if mindMapErr != nil {
+			err = mindMapErr
+			break
+		}
+		if format == "md" {
+			err = render.Markdown(&converted, mindMap)
+		} else {
+			err = render.HTML(&converted, mindMap)
+		}
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "mindconv: %v\n", err)
@@ -143,6 +147,8 @@ func normalizeFormat(value string) string {
 		return "md"
 	case "html", "htm":
 		return "html"
+	case "xml":
+		return "xml"
 	default:
 		return ""
 	}
