@@ -211,8 +211,7 @@ func topicTitle(topic *xmlNode) string {
 
 func topicNotes(topic *xmlNode) string {
 	for _, child := range topic.children {
-		name := strings.ToLower(child.name)
-		if !strings.Contains(name, "note") {
+		if !isNoteElement(child.name) {
 			continue
 		}
 		if plainText := findAttribute(child, "plaintext", true); plainText != "" {
@@ -223,6 +222,18 @@ func topicNotes(topic *xmlNode) string {
 		}
 	}
 	return ""
+}
+
+// isNoteElement reports whether name is a known MindManager notes container element.
+// Using exact matching instead of substring contains avoids false positives from
+// elements whose names incidentally contain "note" (e.g., FooterNoteGroup).
+func isNoteElement(name string) bool {
+	switch strings.ToLower(name) {
+	case "notesgroup", "notesxhtmldata", "notesplain", "notes":
+		return true
+	default:
+		return false
+	}
 }
 
 func topicLinks(topic *xmlNode) []model.Link {
